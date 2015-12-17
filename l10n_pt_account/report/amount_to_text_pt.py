@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
-#    
+#
 #    OpenERP, Open Source Management Solution
 #    Copyright (C) 2004-2009 Tiny SPRL (<http://tiny.be>).
 #
@@ -15,7 +15,7 @@
 #    GNU Affero General Public License for more details.
 #
 #    You should have received a copy of the GNU Affero General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.     
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 ##############################################################################
 
@@ -30,7 +30,7 @@ import logging
 #          'Seven', 'Eight', 'Nine', 'Ten',   'Eleven', 'Twelve', 'Thirteen',
 #          'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen' )
 to_19 = ( 'Zero',  'Um' , 'Dois' , 'Três' , 'Quatro', 'Cinco' , 'Seis',
-          'Sete', 'Oito' , 'Nove' , 'Dez' , 'Onze' , 'Doze' , 'Treze' , 
+          'Sete', 'Oito' , 'Nove' , 'Dez' , 'Onze' , 'Doze' , 'Treze' ,
           'Catorze', 'Quinze' , 'Dezasseies' , 'Dezassete' , 'Dezoito' , 'Dezanove')
 tens  = ( 'Vinte', 'Trinta', 'Quarenta', 'Cinquenta', 'Sessenta', 'Setenta', 'Oitenta', 'Noventa')
 denom = ( '',
@@ -50,7 +50,7 @@ def _convert_nn(val):
                 return dcap + ''+ ' e ' + '' + to_19[val % 10]
             return dcap
 
-# convert a value < 1000 to english, special cased because it is the level that kicks 
+# convert a value < 1000 to english, special cased because it is the level that kicks
 # off the < 100 special case.  The rest are more general.  This also allows you to
 # get strings in the form of 'forty-five hundred' if called directly.
 def _convert_nnn(val):
@@ -100,7 +100,7 @@ def amount_to_text(number, currency):
 #-------------------------------------------------------------
 
 _translate_funcs = {'pt' : amount_to_text}
-    
+
 #TODO: we should use the country AND language (ex: septante VS soixante dix)
 #TODO: we should use en by default, but the translation func is yet to be implemented
 def amount_to_text(nbr, lang='pt', currency='euro'):
@@ -117,7 +117,7 @@ def amount_to_text(nbr, lang='pt', currency='euro'):
 
 if __name__=='__main__':
     from sys import argv
-    
+
     lang = 'nl'
     if len(argv) < 2:
         for i in range(1,200):
@@ -126,4 +126,3 @@ if __name__=='__main__':
             print i, ">>", int_to_text(i, lang)
     else:
         print int_to_text(int(argv[1]), lang)
-

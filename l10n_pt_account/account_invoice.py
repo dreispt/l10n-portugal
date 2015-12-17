@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
 #
-#    OpenERP, Open Source Management Solution
 #    Copyright (C) 2012 Thinkopen Solutions, Lda. All Rights Reserved
 #    http://www.thinkopensolutions.com.
-#    $Id$
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as
@@ -59,7 +57,6 @@ EXEMPTION_SELECTION = [(str(i), t) for (i, t) in EXEMPTION_REASONS]
 
 
 class account_pt_invoice(osv.osv):
-    _name = "account.invoice"
     _description = 'Invoice'
     _inherit = 'account.invoice'
     _order = "date_invoice desc, number desc"
@@ -73,13 +70,12 @@ class account_pt_invoice(osv.osv):
         },
     }
 
-
     def _convert_ref(self, ref):
         return (ref or '').replace('/','')
-    
+
     def _check_selection_field_value(self, cr, uid, field, value, context=None):
         if field == 'type' and value in ('debit_note', 'in_debit_note', 'simplified_invoice'):
-            return 
+            return
         super(account_pt_invoice, self)._check_selection_field_value(cr, uid, field, value, context=context)
 
     # TKO ACCOUNT PT: New method
@@ -240,7 +236,7 @@ class account_pt_invoice(osv.osv):
             waybill = self.env['account.guia'].search([('numero', '=', inv.waybill_ref)])
             if waybill:
                 vals = {
-                    'waybill_reference': waybill.numero, 
+                    'waybill_reference': waybill.numero,
                     'waybill_date': waybill.data_carga.split()[0],
                 }
                 lines_without_refs.write(vals)
@@ -254,7 +250,7 @@ class account_pt_invoice(osv.osv):
             values = {}
         address = self.env['res.partner'].browse(address_id)
         values = {
-            'unload_city': address.city if address.city else '', 
+            'unload_city': address.city if address.city else '',
             'unload_postal_code': address.zip if address.zip else '',
         }
         return values
@@ -452,7 +448,7 @@ class account_pt_invoice(osv.osv):
     def pay_zero_invoice(self, cr, uid, invoice, context):
         self.pool.get('account.move.line').copy(cr, uid, credit_line.id)
         reconcile_invoice(self, cr, uid, invoice, context)
-        #debit_line.credit = 
+        #debit_line.credit =
 
     # TKO ACCOUNT PT: New method
     @api.one

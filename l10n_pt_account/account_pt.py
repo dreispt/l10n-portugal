@@ -8,11 +8,11 @@ import time
 
 class AccountTax(models.Model):
     _inherit = 'account.tax'
-    
+
     # Adding field to map account in debit notes
     account_debit_id = fields.Many2one('account.account',
                                        string='Debit Tax Account')
-    
+
     # TKO ACCOUNT PT: Inherit method
     # Map field account_debit_id
     # TODO: identify if this is still needed
@@ -46,7 +46,7 @@ class AccountTax(models.Model):
             if account_debit_id:
                 dict.update({'account_debit_id':account_debit_id.id,})
         return data
- 
+
 
 class AccountMove(models.Model):
     _inherit = 'account.move'
@@ -85,7 +85,7 @@ class AccountMove(models.Model):
 
 class AccountJournal(models.Model):
     _inherit = "account.journal"
-    
+
     stock_journal = fields.Boolean(string='Stock Journal')
 
     # TKO ACCOUNT PT: method to write only one stock journal
@@ -100,7 +100,7 @@ class AccountJournal(models.Model):
             else:
                 return False
         return True
-    
+
     _constraints = [
         (_check_unique_stock_journal, 'Only one journal can be selected as stock journal!', ['stock_journal']),
-   ]
+    ]
