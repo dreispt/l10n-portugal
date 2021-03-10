@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="assets_frontend" inherit_id="website_sale.assets_frontend">
+        <xpath expr="//link[last()]" position="after">
+            <link href="/payment_easypay/static/src/css/payment_easypay.css" rel="stylesheet" type="text/css"/>
+        </xpath>
+    </template>
+
+    <template id="payment_form">
+        <t t-call="website.layout">
+            <div class="row">
+                <div class="col-sm-4 col-sm-push-4 col-xs-12">
+                    <div class="easypay-card">
+                        <t t-if="tx and tx.ep_entity and tx.ep_reference and tx.ep_value">
+                            <div class="text-center">
+                                <img src="/payment_easypay/static/img/multibanco.jpg" alt="Multibanco"/>
+                            </div>
+                            <div class="row mb10">
+                                <div class="col-xs-6 pl0 pr5 text-right">
+                                    Entidade:
+                                </div>
+                                <div class="col-xs-6 pl5 pr0">
+                                    <strong t-esc="tx.ep_entity"/>
+                                </div>
+                            </div>
+                            <div class="row mb10">
+                                <div class="col-xs-6 pl0 pr5 text-right">
+                                    Referência:
+                                </div>
+                                <div class="col-xs-6 pl5 pr0">
+                                    <strong t-esc="tx.display_ep_reference"/>
+                                </div>
+                            </div>
+                            <div class="row mb10">
+                                <div class="col-xs-6 pl0 pr5 text-right">
+                                    Valor:
+                                </div>
+                                <div class="col-xs-6 pl5 pr0">
+                                    <strong t-esc="tx.display_amount"/>
+                                </div>
+                            </div>
+                            <div t-if="o_max_date" class="row">
+                                <div class="col-xs-6 pl0 pr5 text-right">
+                                    Data limite:
+                                </div>
+                                <div class="col-xs-6 pl5 pr0">
+                                    <strong t-esc="tx.display_o_max_date"/>
+                                </div>
+                            </div>
+                        </t>
+                        <t t-else="">
+                            Ocorreu um erro inesperado. Por favor, volte a tentar ou contacte a nossa equipa se o erro
+                            persistir.
+                        </t>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="easypay_notification" name="Easypay Notification">
+<getautomb_key>
+    <ep_status>ok0</ep_status>
+    <ep_message>generated document</ep_message>
+    <ep_cin t-esc="ep_cin"/>
+    <ep_user t-esc="ep_user"/>
+    <ep_doc t-esc="ep_doc"/>
+    <ep_key t-esc="ep_key"/>
+</getautomb_key>
+    </template>
+
+</odoo>

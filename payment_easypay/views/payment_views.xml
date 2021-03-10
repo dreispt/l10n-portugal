@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="acquirer_form_easypay" model="ir.ui.view">
+        <field name="name">acquirer.form.easypay</field>
+        <field name="model">payment.acquirer</field>
+        <field name="inherit_id" ref="payment.acquirer_form"/>
+        <field name="arch" type="xml">
+            <xpath expr='//group[@name="acquirer"]' position='after'>
+                <group attrs="{'invisible': [('provider', '!=', 'easypay')]}">
+                    <field name="ep_cin" attrs="{'required': [('provider', '=', 'easypay')]}"/>
+                    <field name="ep_user" attrs="{'required': [('provider', '=', 'easypay')]}"/>
+                    <field name="ep_entity" attrs="{'required': [('provider', '=', 'easypay')]}"/>
+                    <field name="ep_expiration_days"
+                           attrs="{'required': [('provider', '=', 'easypay')], 'invisible': [('ep_entity', '!=', '11683')]}"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="transaction_form" model="ir.ui.view">
+        <field name="name">payment.transaction.form</field>
+        <field name="model">payment.transaction</field>
+        <field name="inherit_id" ref="payment.transaction_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[last()]" position="after">
+                <notebook>
+                    <page string="Easypay" attrs="{'invisible': [('is_easypay', '=', False)]}">
+                        <group>
+                            <group>
+                                <field name="ep_status"/>
+                                <field name="ep_cin"/>
+                                <field name="ep_user"/>
+                                <field name="ep_entity"/>
+                                <field name="ep_reference"/>
+                                <field name="ep_value"/>
+                            </group>
+                            <group>
+                                <field name="t_key"/>
+                                <field name="ep_boleto"/>
+                                <field name="ep_currency"/>
+                                <field name="ep_original_value"/>
+                                <field name="o_max_date"/>
+                            </group>
+                        </group>
+                    </page>
+                    <page string="Metadata" attrs="{'invisible': [('metadata', '=', False)]}">
+                        <group>
+                            <field name="metadata" nolabel="1"/>
+                        </group>
+                        <br/>
+                        <br/>
+                        <group>
+                            <field name="notification_metadata" nolabel="1"/>
+                        </group>
+                    </page>
+                </notebook>
+                <field name="is_easypay" invisible="1"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
