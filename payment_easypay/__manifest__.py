@@ -25,7 +25,11 @@ Débito Direto SEPA (Single Euro Payments Area) ou Boleto Bancário.
 """,
     'author': 'OdooGap',
     'website': 'https://www.odoogap.com',
-    'depends': ['website_sale', 'account_invoicing'],
+    'depends': [
+        'website_sale',
+        'account',
+        # 'account_invoicing',
+    ],
     'data': [
         'data/payment_acquirer_data.xml',
         'security/ir.model.access.csv',
