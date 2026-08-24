@@ -27,8 +27,24 @@ class TestInvoiceXpress(common.TransactionCase):
                 "country_id": self.env.ref("base.pt").id,
             }
         )
+        self.backend = self.env["invoice.api.backend"].create(
+            {
+                "name": "InvoiceXpress",
+                "provider": "invoicexpress",
+                "company_id": self.company.id,
+                "invoicexpress_account_name": "ACCOUNT",
+                "api_key": "APIKEY",
+                "state": "enabled",
+            }
+        )
         Journal = self.env["account.journal"]
         self.sale_journals = Journal.search([("type", "=", "sale")])
+        self.sale_journals.write(
+            {
+                "invoicexpress_doc_type": "invoice_receipt",
+                "invoice_api_backend_id": self.backend.id,
+            }
+        )
 
         self.AccountMove = self.env["account.move"]
         self.ProductProduct = self.env["product.product"]
@@ -110,11 +126,10 @@ class TestInvoiceXpress(common.TransactionCase):
                 }
             }
         )
-        # Ensure Journal is configured
-        self.sale_journals.write({"invoicexpress_doc_type": "invoice_receipt"})
         # Create the Invoice
         move_form = Form(self.AccountMove.with_context(default_move_type="out_invoice"))
         move_form.invoice_date = fields.Date.today()
+        move_form.invoice_date_due = fields.Date.today()
         move_form.partner_id = self.partnerA
         products = [self.productA, self.productB]
 
@@ -124,5 +139,5 @@ class TestInvoiceXpress(common.TransactionCase):
         invoice = move_form.save()
         invoice.action_post()
         self.assertEqual(invoice.invoicexpress_doc_type, "invoice_receipt")
-        self.assertEqual(invoice.invoicexpress_id, "12345678")
+        self.assertEqual(invoice.external_invoice_id, "12345678")
         self.assertEqual(invoice.name, "FR MYSEQ/123")

@@ -3,14 +3,11 @@
     <record model="ir.ui.view" id="view_account_journal_form">
         <field name="name">Journal Form: add Invoicexpress</field>
         <field name="model">account.journal</field>
-        <field name="inherit_id" ref="account.view_account_journal_form" />
+        <field name="inherit_id" ref="account_invoice_api_connector.view_account_journal_form" />
         <field name="arch" type="xml">
-            <page name="advanced_settings" position="inside">
-                <group string="Invoicexpress" invisible="type != 'sale'">
-                    <field name="invoicexpress_doc_type" />
-                    <field name="use_invoicexpress" groupe="base.group_no_one" />
-                </group>
-            </page>
+            <group name="invoice_api_group" position="inside">
+                <field name="invoicexpress_doc_type" />
+            </group>
         </field>
     </record>
 </odoo>

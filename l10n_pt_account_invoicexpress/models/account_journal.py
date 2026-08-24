@@ -7,13 +7,18 @@ from odoo import api, fields, models
 class AccountJournal(models.Model):
     _inherit = "account.journal"
 
-    @api.depends("invoicexpress_doc_type")
-    def _compute_use_invoicexpress(self):
+    @api.depends(
+        "invoicexpress_doc_type",
+        "invoice_api_backend_id",
+        "invoice_api_backend_id.state",
+    )
+    def _compute_use_invoice_api(self):
         for journal in self:
-            journal.use_invoicexpress = (
+            journal.use_invoice_api = (
                 journal.invoicexpress_doc_type
                 and journal.invoicexpress_doc_type != "none"
-                and journal.company_id.has_invoicexpress
+                and journal.invoice_api_backend_id
+                and journal.invoice_api_backend_id.state == "enabled"
             )
 
     invoicexpress_doc_type = fields.Selection(
@@ -25,9 +30,4 @@ class AccountJournal(models.Model):
         ],
         help="Select the type of legal invoice document"
         " to be created by InvoiceXpress.",
-    )
-    use_invoicexpress = fields.Boolean(
-        compute="_compute_use_invoicexpress",
-        help="Invoicexpress service is only used if checked."
-        " Only relevant for Sales journals.",
     )

@@ -5,6 +5,8 @@ from . import account_invoicexpress
 from . import account_journal
 from . import account_move
 from . import account_tax
+from . import invoice_api_adapter
+from . import invoice_api_backend
 from . import res_company
 from . import res_config_settings
 from . import res_country

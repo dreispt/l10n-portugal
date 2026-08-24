@@ -1,8 +1,6 @@
 # Copyright (C) 2021 Open Source Integrators
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
-import uuid
-
 from markupsafe import Markup
 
 from odoo import api, exceptions, fields, models
@@ -11,35 +9,13 @@ from odoo import api, exceptions, fields, models
 class AccountMove(models.Model):
     _inherit = "account.move"
 
-    @api.depends("restrict_mode_hash_table", "state")
-    def _compute_show_reset_to_draft_button(self):
-        super()._compute_show_reset_to_draft_button()
-        # InvoiceXpress generated invoices can't be set to Draft
-        self.filtered("invoicexpress_id").write({"show_reset_to_draft_button": False})
-        return
-
-    @api.depends("move_type", "journal_id.use_invoicexpress")
-    def _compute_can_invoicexpress(self):
-        for invoice in self:
-            invoice.can_invoicexpress = (
-                invoice.journal_id.use_invoicexpress and invoice.is_sale_document()
-            )
-
-    @api.depends("can_invoicexpress", "company_id.invoicexpress_template_id")
-    def _compute_can_invoicexpress_email(self):
-        for invoice in self:
-            invoice.can_invoicexpress_email = (
-                invoice.can_invoicexpress
-                and invoice.company_id.invoicexpress_template_id
-            )
-
     @api.depends("move_type", "journal_id", "partner_shipping_id")
     def _compute_invoicexpress_doc_type(self):
         """
         The type of document to create: invoices, invoice_receipts,
         simplified_invoices, vat_moss_invoices, credit_notes or debit_notes.
         """
-        invoices = self.filtered("journal_id.use_invoicexpress")
+        invoices = self.filtered("journal_id.use_invoice_api")
         for invoice in invoices:
             doctype = invoice.journal_id.invoicexpress_doc_type
             if not doctype or doctype == "none":
@@ -50,15 +26,13 @@ class AccountMove(models.Model):
                 res = doctype
             invoice.invoicexpress_doc_type = res
 
-    journal_type = fields.Selection(
-        related="journal_id.type", string="Journal Type", readonly=True
-    )
-    invoicexpress_id = fields.Char("InvoiceXpress ID", copy=False, readonly=True)
-    invoicexpress_permalink = fields.Char(
-        "InvoiceXpress Doc Link", copy=False, readonly=True
-    )
-    can_invoicexpress = fields.Boolean(compute="_compute_can_invoicexpress")
-    can_invoicexpress_email = fields.Boolean(compute="_compute_can_invoicexpress_email")
+    @api.depends("can_invoice_api", "company_id.invoicexpress_template_id")
+    def _compute_can_invoice_api_email(self):
+        for invoice in self:
+            invoice.can_invoice_api_email = (
+                invoice.can_invoice_api
+                and invoice.company_id.invoicexpress_template_id
+            )
 
     invoicexpress_doc_type = fields.Selection(
         [
@@ -97,86 +71,57 @@ class AccountMove(models.Model):
                     )
                 )
 
-    @api.model
-    def _get_invoicexpress_prefix(self, doctype):
-        return {
-            "invoice": "FT",
-            "invoice_receipt": "FR",
-            "simplified_invoice": "FS",
-            "vat_moss_invoice": "FVM",
-            # vat_moss_credit_note does not have a prefix!
-            "credit_note": "NC",
-            "debit_note": "ND",
-        }.get(doctype)
-
-    def _prepare_invoicexpress_lines(self):
-        # FIXME: set user lang, based on country?
-        lines = self.invoice_line_ids.filtered(
-            lambda x: x.display_type not in ("line_section", "line_note")
-        )
-        # Ensure Taxes are created on InvoiceXpress
-        lines.mapped("tax_ids").action_invoicexpress_tax_create()
-        items = []
-        for line in lines:
-            tax = line.tax_ids[:1]
-            # If not tax set, force zero VAT
-            tax_detail = {"name": tax.name or "IVA0", "value": tax.amount or 0.0}
-            # Because InvoiceXpress expects unit_price in EUR,
-            # check if we need to convert
-            # line currency to company currency
-            # (company should use EUR as default currency)
-            if line.currency_id == line.company_id.currency_id:
-                price_unit = line.price_unit
-            else:
-                price_unit = line.currency_id._convert(
-                    line.price_unit,
-                    line.company_id.currency_id,
-                    line.company_id,
-                    line.move_id.invoice_date
-                    or line.move_id.date
-                    or fields.Date.context_today(line),
-                )
-            items.append(
-                {
-                    "name": line.product_id.default_code
-                    or line.product_id.display_name,
-                    "description": line._get_invoicexpress_descr(),
-                    "unit_price": price_unit,
-                    "quantity": line.quantity,
-                    "discount": line.discount,
-                    "tax": tax_detail,
-                }
-            )
-        return items
-
-    def _get_invoicexpress_partner(self):
-        # Hook to customize the "client" values to use
+    def _get_invoice_api_partner(self):
+        # Use InvoiceXpress contact sync for the customer
         return self.commercial_partner_id
 
-    def _prepare_invoicexpress_vals(self):
+    def _prepare_invoice_api_partner_vals(self, partner):
+        res = partner.set_invoicexpress_contact()
+        vals = super()._prepare_invoice_api_partner_vals(partner)
+        vals["external_ref"] = res.get("code") or vals.get("reference") or ""
+        vals["language"] = partner._prepare_invoicexpress_vals().get("language", "")
+        return vals
+
+    def _prepare_invoice_api_line_vals(self, line):
         self.ensure_one()
-        if not self.invoice_date and self.invoice_date_due:
-            raise exceptions.UserError(
-                self.env._("Kindly add the invoice date and invoice due date.")
+        tax = line.tax_ids[:1]
+        # Ensure Taxes are created on InvoiceXpress
+        tax.action_invoicexpress_tax_create()
+        # Because InvoiceXpress expects unit_price in EUR,
+        # check if we need to convert line currency to company currency
+        if line.currency_id == line.company_id.currency_id:
+            price_unit = line.price_unit
+        else:
+            price_unit = line.currency_id._convert(
+                line.price_unit,
+                line.company_id.currency_id,
+                line.company_id,
+                line.move_id.invoice_date
+                or line.move_id.date
+                or fields.Date.context_today(line),
             )
-        customer = self._get_invoicexpress_partner()
-        customer_vals = customer.set_invoicexpress_contact()
-        items = self._prepare_invoicexpress_lines()
-        proprietary_uid = "ODOO" + str(uuid.uuid4()).replace("-", "")
-        invoice_data = {
-            "invoice": {
-                "date": self.invoice_date.strftime("%d/%m/%Y"),
-                "due_date": self.invoice_date_due.strftime("%d/%m/%Y"),
-                "reference": self.ref or "",
-                "client": customer_vals,
-                "observations": self.narration or "",
-                "items": items,
+        return {
+            "name": line.product_id.default_code
+            or line.product_id.display_name
+            or "",
+            "description": line._get_invoicexpress_descr(),
+            "quantity": line.quantity,
+            "unit_price": price_unit,
+            "discount": line.discount,
+            "unit_of_measure": line.product_uom_id.name if line.product_uom_id else "",
+            "tax": {
+                "name": tax.name or "IVA0",
+                "amount": tax.amount or 0.0,
+                "exemption_reason": "",
             },
-            "proprietary_uid": proprietary_uid,
         }
+
+    def _prepare_invoice_api_vals(self):
+        vals = super()._prepare_invoice_api_vals()
+        vals["document_type"] = self.invoicexpress_doc_type or "invoice"
         exempt_code = self.l10npt_vat_exempt_reason.code
         if exempt_code:
-            invoice_data["invoice"]["tax_exemption"] = exempt_code
+            vals["tax_exemption"] = exempt_code
         if self.company_id.currency_id != self.currency_id:
             currency_rate = self.env["res.currency"]._get_conversion_rate(
                 self.company_id.currency_id,
@@ -184,169 +129,68 @@ class AccountMove(models.Model):
                 self.company_id,
                 self.invoice_date,
             )
-            invoice_data["invoice"].update(
-                {"currency_code": self.currency_id.name, "rate": str(currency_rate)}
-            )
-        doctype = self.invoicexpress_doc_type
+            vals["exchange_rate"] = currency_rate
+        doctype = vals["document_type"]
         if doctype in ("credit_note", "debit_note"):
-            owner_invoice_num = self.reversed_entry_id.invoicexpress_id
+            owner_invoice_num = self.reversed_entry_id.external_invoice_id
             if owner_invoice_num:
-                invoice_data["invoice"]["owner_invoice_id"] = owner_invoice_num
-        return invoice_data
+                vals["owner_invoice_id"] = owner_invoice_num
+        return vals
 
-    def _update_invoicexpress_status(self):
-        inv_xpress_link_name = self.env._("View Document")
-        inv_xpress_link = self.env._(
-            "<a class='btn btn-info mr-2' target='new' href=%(link)s>%(name)s</a>",
-            link=self.invoicexpress_permalink,
-            name=inv_xpress_link_name,
-        )
-        msg = self.env._(
-            "InvoiceXpress record has been created for this invoice:"
-            "<ul><li>InvoiceXpress Id: %(inv_xpress_id)s</li>"
-            "<li>%(inv_xpress_link)s</li></ul>",
-            inv_xpress_id=self.invoicexpress_id,
-            inv_xpress_link=inv_xpress_link,
-        )
-        self.message_post(body=Markup(msg))
+    def _set_external_invoice_status(self, result):
+        super()._set_external_invoice_status(result)
+        if self.external_invoice_number:
+            if self.payment_reference == self.name:
+                self.payment_reference = self.external_invoice_number
+            self.name = self.external_invoice_number
 
-    def action_create_invoicexpress_invoice(self):
-        InvoiceXpress = self.env["account.invoicexpress"]
-        for invoice in self.filtered("can_invoicexpress"):
-            doctype = invoice.invoicexpress_doc_type
-            if not doctype:
-                raise exceptions.UserError(
-                    self.env._("Invoice is missing the InvoiceXpress document type!")
-                )
-            payload = invoice._prepare_invoicexpress_vals()
-            response = InvoiceXpress.call(
-                invoice.company_id, f"{doctype}s.json", "POST", payload=payload
-            ).json()
-            values = response.get(doctype)
-            if not values:
-                raise exceptions.UserError(
-                    self.env._(
-                        "Something went wrong: the InvoiceXpress response looks empty."
-                    )
-                )
-            invoice.invoicexpress_id = values.get("id")
-            invoice.invoicexpress_permalink = values.get("permalink")
-            response1 = InvoiceXpress.call(
-                invoice.company_id,
-                f"{doctype}s/{invoice.invoicexpress_id}/change-state.json",
-                "PUT",
-                payload={"invoice": {"state": "finalized"}},
-                raise_errors=True,
-            ).json()
-            values1 = response1.get(doctype)
-            seqnum = values1 and values1.get("inverted_sequence_number")
-            if not seqnum:
-                raise exceptions.UserError(
-                    self.env._(
-                        "Something went wrong: the InvoiceXpress response"
-                        " is missing a sequence number."
-                    )
-                )
-            prefix = self._get_invoicexpress_prefix(doctype)
-            invx_number = f"{prefix} {seqnum}" if prefix else seqnum
-            if invoice.payment_reference == invoice.name:
-                invoice.payment_reference = invx_number
-            invoice.name = invx_number
-            invoice._update_invoicexpress_status()
-
-    def _prepare_invoicexpress_email_vals(self, ignore_no_config=False):
+    def _prepare_invoice_api_email_vals(self):
         self.ensure_one()
         template_id = self.company_id.invoicexpress_template_id
-        if not template_id and not ignore_no_config:
-            raise exceptions.UserError(
-                self.env._(
-                    "Please configure the InvoiceXpress email template"
-                    " at Settings > General Setting, InvoiceXpress section"
-                )
-            )
+        if not template_id:
+            return None
         values = template_id._generate_template(
             [self.id], ["subject", "body_html", "email_to", "email_cc"]
         )[self.id]
-        if not values.get("email_to") and not ignore_no_config:
-            raise exceptions.UserError(
-                self.env._("No address to send invoice email to.")
-            )
-        email_data = None
-        if template_id and values["email_to"]:
-            email_data = {
-                "message": {
-                    "client": {"email": values["email_to"], "save": "0"},
-                    "cc": values["email_cc"],
-                    "subject": values["subject"],
-                    "body": values["body_html"],
-                }
-            }
-        return email_data
-
-    def action_send_invoicexpress_email(self, ignore_no_config=False):
-        InvoiceXpress = self.env["account.invoicexpress"]
-        for invoice in self.filtered("can_invoicexpress_email"):
-            if not invoice.invoicexpress_id:
-                raise exceptions.UserError(
-                    self.env._(
-                        "Invoice %(invoice)s is not registered in InvoiceXpress yet.",
-                        invoice=invoice.name,
-                    )
-                )
-            doctype = invoice.invoicexpress_doc_type
-            endpoint = f"{doctype}s/{invoice.invoicexpress_id}/email-document.json"
-            payload = invoice._prepare_invoicexpress_email_vals(ignore_no_config)
-            if payload:
-                InvoiceXpress.call(invoice.company_id, endpoint, "PUT", payload=payload)
-                msg = self.env._(
-                    "Email sent by InvoiceXpress:"
-                    "<ul><li>To: %(email)s</li><li>Cc: %(cc)s</li></ul>",
-                    email=payload["message"]["client"]["email"],
-                    cc=payload["message"].get("cc", ""),
-                )
-                invoice.message_post(body=Markup(msg))
+        if not values.get("email_to"):
+            return None
+        return {
+            "doctype": self.invoicexpress_doc_type,
+            "message": {
+                "client": {"email": values["email_to"], "save": "0"},
+                "cc": values["email_cc"],
+                "subject": values["subject"],
+                "body": values["body_html"],
+            },
+        }
 
     def _post(self, soft=True):
+        for invoice in self.filtered("can_invoice_api"):
+            invoice._check_invoicexpress_doctype_config()
         res = super()._post(soft=soft)
         for invoice in self:
-            if not invoice.invoicexpress_id:
-                invoice._check_invoicexpress_doctype_config()
-                invoice.action_create_invoicexpress_invoice()
-                invoice.action_send_invoicexpress_email(ignore_no_config=True)
+            if invoice.can_invoice_api and invoice.external_invoice_id:
+                invoice.action_send_external_invoice_email()
         return res
 
     def _track_subtype(self, init_values):
         res = super()._track_subtype(init_values)
         if "payment_state" in init_values and self.payment_state == "paid":
             for invoice in self:
-                if invoice.invoicexpress_id:
+                if invoice.external_invoice_id:
                     invoice._mark_invoice_paid()
         return res
 
     def _mark_invoice_paid(self):
-        InvoiceXpress = self.env["account.invoicexpress"]
-        for invoice in self.filtered("can_invoicexpress"):
+        for invoice in self.filtered("can_invoice_api"):
             doctype = invoice.invoicexpress_doc_type
             if not doctype:
                 raise exceptions.UserError(
                     self.env._("Invoice is missing the InvoiceXpress document type!")
                 )
-            response = InvoiceXpress.call(
-                invoice.company_id,
-                f"{doctype}s/{invoice.invoicexpress_id}/change-state.json",
-                "PUT",
-                payload={"invoice": {"state": "settled"}},
-                raise_errors=True,
-            ).json()
-            values = response.get(doctype)
-            seqnum = values and values.get("inverted_sequence_number")
-            if not seqnum:
-                raise exceptions.UserError(
-                    self.env._(
-                        "Something went wrong: the InvoiceXpress response"
-                        " is missing a sequence number."
-                    )
-                )
+            backend = invoice._get_invoice_api_backend()
+            client = backend.get_client()
+            client.mark_paid(invoice.external_invoice_id, doctype)
             msg = self.env._("InvoiceXpress record has been modified to Paid.")
             self.message_post(body=Markup(msg))
 
