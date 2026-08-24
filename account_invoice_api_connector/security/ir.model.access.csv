@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_invoice_api_backend_user,invoice.api.backend.user,model_invoice_api_backend,base.group_user,1,0,0,0
+access_invoice_api_backend_manager,invoice.api.backend.manager,model_invoice_api_backend,account.group_account_manager,1,1,1,1

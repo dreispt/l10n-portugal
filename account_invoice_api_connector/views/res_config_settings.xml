@@ -1,0 +1,29 @@
+<odoo>
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.invoice_api</field>
+        <field name="priority" eval="200" />
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="account.res_config_settings_view_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='account']" position="inside">
+                <block title="Invoice API" name="invoice_api">
+                    <setting
+                        string="Invoice API"
+                        help="Generic integration with external e-invoicing APIs"
+                        id="account_invoice_api_connector"
+                    >
+                        <div class="content-group" name="invoice_api_options">
+                            <div class="mt16">
+                                <label
+                                    for="invoice_api_template_id"
+                                    string="Invoice API Email Template"
+                                />
+                                <field name="invoice_api_template_id" />
+                            </div>
+                        </div>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

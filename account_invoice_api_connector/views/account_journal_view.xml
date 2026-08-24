@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record model="ir.ui.view" id="view_account_journal_form">
+        <field name="name">Journal Form: add Invoice API</field>
+        <field name="model">account.journal</field>
+        <field name="inherit_id" ref="account.view_account_journal_form" />
+        <field name="arch" type="xml">
+            <page name="advanced_settings" position="inside">
+                <group
+                    name="invoice_api_group"
+                    string="Invoice API"
+                    invisible="type != 'sale'"
+                >
+                    <field name="invoice_api_backend_id" />
+                    <field name="use_invoice_api" groups="base.group_no_one" />
+                </group>
+            </page>
+        </field>
+    </record>
+</odoo>

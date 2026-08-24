@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Account Move form view extended -->
+    <record model="ir.ui.view" id="view_account_move_form">
+        <field name="name">account.move.form</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form" />
+        <field name="arch" type="xml">
+            <div name="journal_div" position="after">
+                <field name="can_invoice_api" invisible="1" />
+                <field name="can_invoice_api_email" invisible="1" />
+            </div>
+            <xpath expr="//notebook//page[@name='other_info']" position="after">
+                <page
+                    name="invoice_api"
+                    string="Invoice API"
+                    invisible="not can_invoice_api"
+                >
+                    <group>
+                        <field name="external_invoice_id" />
+                        <field name="external_invoice_state" />
+                        <field name="external_invoice_number" />
+                        <field name="external_invoice_url" widget="url" />
+                        <field name="external_invoice_last_error" />
+                    </group>
+                </page>
+            </xpath>
+            <button name="action_invoice_sent" position="attributes">
+                <attribute name="invisible">can_invoice_api</attribute>
+            </button>
+            <button name="preview_invoice" position="before">
+                <button
+                    name="action_send_external_invoice_email"
+                    string="Email External Invoice"
+                    type="object"
+                    invisible="not can_invoice_api_email or not external_invoice_id"
+                />
+            </button>
+        </field>
+    </record>
+</odoo>
